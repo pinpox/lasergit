@@ -57,7 +57,7 @@ type ListPRModel struct {
 
 type ListPRResult struct {
 	SelectedPR *gitea.PullRequest
-	Action     string // "view", "checkout", "quit"
+	Action     string // "view", "checkout", "create", "refresh", "quit"
 }
 
 func NewListPRModel(prs []*gitea.PullRequest, owner, repo, currentBranch string) ListPRModel {
@@ -172,6 +172,11 @@ func (m ListPRModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.done = true
 			return m, tea.Quit
 
+		case "c":
+			m.action = "create"
+			m.done = true
+			return m, tea.Quit
+
 		case "r":
 			m.action = "refresh"
 			return m, tea.Quit
@@ -225,7 +230,7 @@ func (m ListPRModel) View() string {
 
 	// Help
 	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("↑/↓: navigate • enter: checkout PR • v: view details • r: refresh • q/esc: quit"))
+	b.WriteString(helpStyle.Render("↑/↓: navigate • enter: checkout PR • c: create PR • v: view details • r: refresh • q/esc: quit"))
 
 	return b.String()
 }

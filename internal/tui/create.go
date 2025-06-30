@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -20,36 +21,29 @@ var (
 			Bold(true)
 
 	inputStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("0")).
-			Background(lipgloss.Color("15")).
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("8")).
 			Padding(0, 1).
 			Margin(0, 0, 1, 0)
 
 	focusedInputStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("0")).
-				Background(lipgloss.Color("15")).
 				Border(lipgloss.RoundedBorder()).
 				BorderForeground(lipgloss.Color("13")).
 				Padding(0, 1).
 				Margin(0, 0, 1, 0)
 
 	buttonStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("15")).
-			Background(lipgloss.Color("8")).
+			Foreground(lipgloss.Color("8")).
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("8")).
-			Padding(0, 2).
-			Margin(0, 1)
+			Padding(0, 1)
 
 	activeButtonStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("15")).
-				Background(lipgloss.Color("13")).
+				Foreground(lipgloss.Color("13")).
 				Border(lipgloss.RoundedBorder()).
 				BorderForeground(lipgloss.Color("13")).
-				Padding(0, 2).
-				Margin(0, 1)
+				Bold(true).
+				Padding(0, 1)
 
 	helpStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("8")).
@@ -61,13 +55,14 @@ var (
 )
 
 type CreatePRModel struct {
-	inputs   []textinput.Model
-	focused  int
-	topicBranch    string
-	targetBranch   string
-	err      error
-	done     bool
-	canceled bool
+	titleInput   textinput.Model
+	descInput    textarea.Model
+	focused      int
+	topicBranch  string
+	targetBranch string
+	err          error
+	done         bool
+	canceled     bool
 }
 
 type CreatePRResult struct {
@@ -79,23 +74,23 @@ type CreatePRResult struct {
 }
 
 func NewCreatePRModel(topicBranch, targetBranch string) CreatePRModel {
-	inputs := make([]textinput.Model, 2)
-
 	// Title input
-	inputs[0] = textinput.New()
-	inputs[0].Placeholder = "Enter PR title..."
-	inputs[0].Focus()
-	inputs[0].CharLimit = 100
-	inputs[0].Width = 60
+	titleInput := textinput.New()
+	titleInput.Placeholder = "Enter PR title..."
+	titleInput.Focus()
+	titleInput.CharLimit = 100
+	titleInput.Width = 60
 
-	// Description input
-	inputs[1] = textinput.New()
-	inputs[1].Placeholder = "Enter PR description (optional)..."
-	inputs[1].CharLimit = 500
-	inputs[1].Width = 60
+	// Description textarea (multiline)
+	descInput := textarea.New()
+	descInput.Placeholder = "Enter PR description (optional)..."
+	descInput.CharLimit = 1000
+	descInput.SetWidth(60)
+	descInput.SetHeight(4)
 
 	return CreatePRModel{
-		inputs:       inputs,
+		titleInput:   titleInput,
+		descInput:    descInput,
 		focused:      0,
 		topicBranch:  topicBranch,
 		targetBranch: targetBranch,
@@ -103,7 +98,7 @@ func NewCreatePRModel(topicBranch, targetBranch string) CreatePRModel {
 }
 
 func (m CreatePRModel) Init() tea.Cmd {
-	return textinput.Blink
+	return nil
 }
 
 func (m CreatePRModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -118,11 +113,22 @@ func (m CreatePRModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "enter":
-			if m.focused == len(m.inputs)-1 {
+			// Handle button actions
+			if m.focused == 2 {
+				// Create PR button
+				m.done = true
+				return m, tea.Quit
+			} else if m.focused == 3 {
+				// Cancel button
+				m.canceled = true
 				m.done = true
 				return m, tea.Quit
 			}
-			m.nextInput()
+			// If we're on title field, move to description
+			if m.focused == 0 {
+				m.nextInput()
+			}
+			// If we're on description field, let Enter add newline (handled by textarea)
 
 		case "tab", "shift+tab", "up", "down":
 			if msg.String() == "up" || msg.String() == "shift+tab" {
@@ -131,26 +137,26 @@ func (m CreatePRModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.nextInput()
 			}
 
-			for i := range m.inputs {
-				if i == m.focused {
-					cmds = append(cmds, m.inputs[i].Focus())
-				} else {
-					m.inputs[i].Blur()
-				}
-			}
-
 			return m, tea.Batch(cmds...)
+
+		case "ctrl+enter":
+			// Ctrl+Enter submits from anywhere
+			m.done = true
+			return m, tea.Quit
 		}
 
 	case tea.WindowSizeMsg:
-		for i := range m.inputs {
-			m.inputs[i].Width = msg.Width - 4
-		}
+		m.titleInput.Width = msg.Width - 4
+		m.descInput.SetWidth(msg.Width - 4)
 	}
 
-	for i := range m.inputs {
-		var cmd tea.Cmd
-		m.inputs[i], cmd = m.inputs[i].Update(msg)
+	// Only update the currently focused input
+	var cmd tea.Cmd
+	if m.focused == 0 {
+		m.titleInput, cmd = m.titleInput.Update(msg)
+		cmds = append(cmds, cmd)
+	} else if m.focused == 1 {
+		m.descInput, cmd = m.descInput.Update(msg)
 		cmds = append(cmds, cmd)
 	}
 
@@ -179,50 +185,85 @@ func (m CreatePRModel) View() string {
 	b.WriteString(labelStyle.Render("Title:"))
 	b.WriteString("\n")
 	if m.focused == 0 {
-		b.WriteString(focusedInputStyle.Render(m.inputs[0].View()))
+		b.WriteString(focusedInputStyle.Render(m.titleInput.View()))
 	} else {
-		b.WriteString(inputStyle.Render(m.inputs[0].View()))
+		b.WriteString(inputStyle.Render(m.titleInput.View()))
 	}
 	b.WriteString("\n")
 
-	// Description input
+	// Description textarea
 	b.WriteString(labelStyle.Render("Description:"))
 	b.WriteString("\n")
 	if m.focused == 1 {
-		b.WriteString(focusedInputStyle.Render(m.inputs[1].View()))
+		b.WriteString(focusedInputStyle.Render(m.descInput.View()))
 	} else {
-		b.WriteString(inputStyle.Render(m.inputs[1].View()))
+		b.WriteString(inputStyle.Render(m.descInput.View()))
 	}
 	b.WriteString("\n")
 
 	// Buttons
-	if m.focused == len(m.inputs) {
-		b.WriteString(activeButtonStyle.Render("[ Create PR ]"))
+	var createButton, cancelButton string
+	if m.focused == 2 {
+		createButton = activeButtonStyle.Render("Create PR")
 	} else {
-		b.WriteString(buttonStyle.Render("[ Create PR ]"))
+		createButton = buttonStyle.Render("Create PR")
 	}
-	b.WriteString("  ")
-	b.WriteString(buttonStyle.Render("[ Cancel ]"))
+	if m.focused == 3 {
+		cancelButton = activeButtonStyle.Render("Cancel")
+	} else {
+		cancelButton = buttonStyle.Render("Cancel")
+	}
+	
+	buttonsLine := lipgloss.JoinHorizontal(lipgloss.Top, createButton, "   ", cancelButton)
+	b.WriteString(buttonsLine)
 	b.WriteString("\n\n")
 
 	// Help
-	b.WriteString(helpStyle.Render("tab/shift+tab: navigate • enter: next/submit • esc: cancel"))
+	b.WriteString(helpStyle.Render("tab: navigate • enter: newline in description • ctrl+enter: submit • esc: cancel"))
 
 	return b.String()
 }
 
 func (m *CreatePRModel) nextInput() {
-	m.focused = (m.focused + 1) % (len(m.inputs) + 1)
+	// Blur current input
+	if m.focused == 0 {
+		m.titleInput.Blur()
+	} else if m.focused == 1 {
+		m.descInput.Blur()
+	}
+	
+	m.focused = (m.focused + 1) % 4 // 0: title, 1: desc, 2: create button, 3: cancel button
+	
+	// Focus new input
+	if m.focused == 0 {
+		m.titleInput.Focus()
+	} else if m.focused == 1 {
+		m.descInput.Focus()
+	}
 }
 
 func (m *CreatePRModel) prevInput() {
-	m.focused = (m.focused - 1 + len(m.inputs) + 1) % (len(m.inputs) + 1)
+	// Blur current input
+	if m.focused == 0 {
+		m.titleInput.Blur()
+	} else if m.focused == 1 {
+		m.descInput.Blur()
+	}
+	
+	m.focused = (m.focused - 1 + 4) % 4 // 0: title, 1: desc, 2: create button, 3: cancel button
+	
+	// Focus new input
+	if m.focused == 0 {
+		m.titleInput.Focus()
+	} else if m.focused == 1 {
+		m.descInput.Focus()
+	}
 }
 
 func (m CreatePRModel) GetResult() CreatePRResult {
 	return CreatePRResult{
-		Title:       m.inputs[0].Value(),
-		Description: m.inputs[1].Value(),
+		Title:       m.titleInput.Value(),
+		Description: m.descInput.Value(),
 		Topic:       m.topicBranch,
 		Target:      m.targetBranch,
 		Canceled:    m.canceled,
