@@ -17,6 +17,11 @@ interface for managing pull requests in Gitea repositories using the AGit
 workflow. It allows you to browse, create, and checkout pull requests without
 leaving your terminal.
 
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/7ffba505-1189-4dab-b8f4-9b803b67fb08" alt="Screenshot" width="600">
+</div>
+
+
 ## Features
 
 - 🔍 Browse pull requests interactively
