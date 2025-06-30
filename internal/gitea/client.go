@@ -16,7 +16,7 @@ type Client struct {
 
 func NewClient(baseURL string) (*Client, error) {
 	token := os.Getenv("GITEA_TOKEN")
-	
+
 	client, err := gitea.NewClient(baseURL, gitea.SetToken(token))
 	if err != nil {
 		return nil, err
@@ -37,7 +37,7 @@ func (c *Client) ListPullRequests(owner, repo string) ([]*gitea.PullRequest, err
 }
 
 func ParseRemoteURL(remoteURL string) (owner, repo, baseURL string, err error) {
-	if strings.HasPrefix(remoteURL, "git@") {
+	if strings.Contains(remoteURL, "@") && strings.Contains(remoteURL, ":") && !strings.HasPrefix(remoteURL, "http") {
 		return parseSSHURL(remoteURL)
 	} else if strings.HasPrefix(remoteURL, "https://") || strings.HasPrefix(remoteURL, "http://") {
 		return parseHTTPSURL(remoteURL)
@@ -47,16 +47,16 @@ func ParseRemoteURL(remoteURL string) (owner, repo, baseURL string, err error) {
 }
 
 func parseSSHURL(remoteURL string) (owner, repo, baseURL string, err error) {
-	re := regexp.MustCompile(`git@([^:]+):([^/]+)/(.+)\.git$`)
+	re := regexp.MustCompile(`([^@]+)@([^:]+):([^/]+)/(.+)\.git$`)
 	matches := re.FindStringSubmatch(remoteURL)
-	
-	if len(matches) != 4 {
+
+	if len(matches) != 5 {
 		return "", "", "", fmt.Errorf("invalid SSH URL format: %s", remoteURL)
 	}
 
-	host := matches[1]
-	owner = matches[2]
-	repo = matches[3]
+	host := matches[2]
+	owner = matches[3]
+	repo = matches[4]
 	baseURL = fmt.Sprintf("https://%s", host)
 
 	return owner, repo, baseURL, nil
@@ -70,7 +70,7 @@ func parseHTTPSURL(remoteURL string) (owner, repo, baseURL string, err error) {
 
 	path := strings.TrimPrefix(u.Path, "/")
 	path = strings.TrimSuffix(path, ".git")
-	
+
 	parts := strings.Split(path, "/")
 	if len(parts) < 2 {
 		return "", "", "", fmt.Errorf("invalid repository path: %s", path)

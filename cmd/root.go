@@ -16,6 +16,5 @@ func Execute() error {
 
 func init() {
 	rootCmd.AddCommand(createCmd)
-	rootCmd.AddCommand(listCmd)
-	rootCmd.AddCommand(checkoutCmd)
+	rootCmd.AddCommand(prCmd)
 }

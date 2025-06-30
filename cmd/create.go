@@ -2,10 +2,8 @@ package cmd
 
 import (
 	"agit/internal/git"
-	"bufio"
+	"agit/internal/tui"
 	"fmt"
-	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -63,10 +61,12 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		title = prTitle
 		description = prDesc
 	} else {
-		title, description, err = getInteractiveInput()
+		result, err := tui.ShowCreatePRDialog(topicName, targetBranch)
 		if err != nil {
-			return fmt.Errorf("failed to get interactive input: %w", err)
+			return fmt.Errorf("failed to get PR details: %w", err)
 		}
+		title = result.Title
+		description = result.Description
 	}
 
 	pushOptions := []string{
@@ -88,22 +88,3 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func getInteractiveInput() (string, string, error) {
-	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Print("PR Title: ")
-	title, err := reader.ReadString('\n')
-	if err != nil {
-		return "", "", err
-	}
-	title = strings.TrimSpace(title)
-
-	fmt.Print("PR Description (optional): ")
-	description, err := reader.ReadString('\n')
-	if err != nil {
-		return "", "", err
-	}
-	description = strings.TrimSpace(description)
-
-	return title, description, nil
-}
