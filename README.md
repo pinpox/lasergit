@@ -3,7 +3,7 @@
 [![Build](https://github.com/pinpox/lasergit/actions/workflows/build.yml/badge.svg)](https://github.com/pinpox/lasergit/actions/workflows/build.yml)
 
 <div align="center">
-  <img src="logo.png" alt="LaserGit Logo" width="300">
+  <img src="logo.png" alt="LaserGit Logo" width="250">
 </div>
 
 <div align="center">
