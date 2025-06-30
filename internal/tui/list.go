@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/table"
@@ -36,16 +37,22 @@ var (
 	authorStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("14")).
 			Bold(true)
+
+	currentBranchStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("10")).
+				Bold(true)
 )
 
 type ListPRModel struct {
-	table    table.Model
-	prs      []*gitea.PullRequest
-	owner    string
-	repo     string
-	selected int
-	action   string
-	done     bool
+	table           table.Model
+	prs             []*gitea.PullRequest
+	owner           string
+	repo            string
+	currentBranch   string
+	currentPRIndex  int
+	selected        int
+	action          string
+	done            bool
 }
 
 type ListPRResult struct {
@@ -53,13 +60,22 @@ type ListPRResult struct {
 	Action     string // "view", "checkout", "quit"
 }
 
-func NewListPRModel(prs []*gitea.PullRequest, owner, repo string) ListPRModel {
+func NewListPRModel(prs []*gitea.PullRequest, owner, repo, currentBranch string) ListPRModel {
 	columns := []table.Column{
 		{Title: "PR", Width: 6},
 		{Title: "Title", Width: 50},
 		{Title: "Author", Width: 15},
 		{Title: "Status", Width: 10},
 		{Title: "Updated", Width: 12},
+	}
+
+	// Detect if we're currently on a PR branch
+	currentPRRegex := regexp.MustCompile(`^agit-(\d+)$`)
+	var currentPRNumber int64 = -1
+	if matches := currentPRRegex.FindStringSubmatch(currentBranch); len(matches) == 2 {
+		if prNum := matches[1]; prNum != "" {
+			fmt.Sscanf(prNum, "%d", &currentPRNumber)
+		}
 	}
 
 	rows := make([]table.Row, len(prs))
@@ -81,10 +97,18 @@ func NewListPRModel(prs []*gitea.PullRequest, owner, repo string) ListPRModel {
 			title = title[:44] + "..."
 		}
 
+		prNumber := fmt.Sprintf("#%d", pr.Index)
+		author := pr.Poster.UserName
+
+		// Add indicator for current PR
+		if pr.Index == currentPRNumber {
+			prNumber = prNumber + " ●"
+		}
+
 		rows[i] = table.Row{
-			fmt.Sprintf("#%d", pr.Index),
+			prNumber,
 			title,
-			pr.Poster.UserName,
+			author,
 			status,
 			updatedTime,
 		}
@@ -102,11 +126,22 @@ func NewListPRModel(prs []*gitea.PullRequest, owner, repo string) ListPRModel {
 	s.Selected = selectedStyle
 	t.SetStyles(s)
 
+	// Find the index of the current PR in the list
+	currentPRIdx := -1
+	for i, pr := range prs {
+		if pr.Index == currentPRNumber {
+			currentPRIdx = i
+			break
+		}
+	}
+
 	return ListPRModel{
-		table: t,
-		prs:   prs,
-		owner: owner,
-		repo:  repo,
+		table:           t,
+		prs:             prs,
+		owner:           owner,
+		repo:            repo,
+		currentBranch:   currentBranch,
+		currentPRIndex:  currentPRIdx,
 	}
 }
 
@@ -157,6 +192,11 @@ func (m ListPRModel) View() string {
 	// Header
 	title := fmt.Sprintf("📋 Pull Requests - %s/%s", m.owner, m.repo)
 	b.WriteString(titleStyle.Render(title))
+	b.WriteString("\n")
+	
+	// Current branch info
+	branchInfo := fmt.Sprintf("Current branch: %s", m.currentBranch)
+	b.WriteString(infoStyle.Render(branchInfo))
 	b.WriteString("\n\n")
 
 	// Table
@@ -203,13 +243,13 @@ func (m ListPRModel) GetResult() ListPRResult {
 	}
 }
 
-func ShowPRList(prs []*gitea.PullRequest, owner, repo string) (*ListPRResult, error) {
+func ShowPRList(prs []*gitea.PullRequest, owner, repo, currentBranch string) (*ListPRResult, error) {
 	if len(prs) == 0 {
 		fmt.Printf("📋 No open pull requests found for %s/%s\n", owner, repo)
 		return &ListPRResult{Action: "quit"}, nil
 	}
 
-	model := NewListPRModel(prs, owner, repo)
+	model := NewListPRModel(prs, owner, repo, currentBranch)
 	program := tea.NewProgram(model)
 	
 	finalModel, err := program.Run()

@@ -9,12 +9,13 @@ import (
 )
 
 var (
-	autoMode    bool
-	topicName   string
-	forceMode   bool
-	prTitle     string
-	prDesc      string
-	targetBranch string
+	autoMode      bool
+	topicName     string
+	forceMode     bool
+	prTitle       string
+	prDesc        string
+	targetBranch  string
+	createRepoPath string
 )
 
 var createCmd = &cobra.Command{
@@ -32,10 +33,11 @@ func init() {
 	createCmd.Flags().StringVar(&prTitle, "title", "", "PR title")
 	createCmd.Flags().StringVar(&prDesc, "description", "", "PR description")
 	createCmd.Flags().StringVar(&targetBranch, "branch", "main", "Target branch")
+	createCmd.Flags().StringVar(&createRepoPath, "repo", ".", "Path to git repository")
 }
 
 func runCreate(cmd *cobra.Command, args []string) error {
-	repo, err := git.OpenRepository(".")
+	repo, err := git.OpenRepository(createRepoPath)
 	if err != nil {
 		return fmt.Errorf("failed to open repository: %w", err)
 	}

@@ -9,6 +9,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	repoPath string
+)
+
 var prCmd = &cobra.Command{
 	Use:     "pr",
 	Aliases: []string{"p"},
@@ -17,8 +21,12 @@ var prCmd = &cobra.Command{
 	RunE:    runPR,
 }
 
+func init() {
+	prCmd.Flags().StringVar(&repoPath, "repo", ".", "Path to git repository")
+}
+
 func runPR(cmd *cobra.Command, args []string) error {
-	repo, err := git.OpenRepository(".")
+	repo, err := git.OpenRepository(repoPath)
 	if err != nil {
 		return fmt.Errorf("failed to open repository: %w", err)
 	}
@@ -43,7 +51,12 @@ func runPR(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to list pull requests: %w", err)
 	}
 
-	result, err := tui.ShowPRList(prs, owner, repoName)
+	currentBranch, err := repo.GetCurrentBranch()
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+
+	result, err := tui.ShowPRList(prs, owner, repoName, currentBranch)
 	if err != nil {
 		return fmt.Errorf("failed to show PR list: %w", err)
 	}
