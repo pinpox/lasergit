@@ -1,7 +1,7 @@
 package main
 
 import (
-	"agit/cmd"
+	"lasergit/cmd"
 	"os"
 )
 

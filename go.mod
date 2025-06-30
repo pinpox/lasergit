@@ -1,4 +1,4 @@
-module agit
+module lasergit
 
 go 1.24.4
 

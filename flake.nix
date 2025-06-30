@@ -24,19 +24,16 @@
 
     in
     {
-
-      # Provide some binary packages for selected system types.
       packages = forAllSystems (system:
         let
           pkgs = nixpkgsFor.${system};
         in
         {
           default = pkgs.buildGoModule {
-            pname = "agit";
+            pname = "lasergit";
             inherit version;
             src = ./.;
-            # vendorHash = pkgs.lib.fakeHash;
-            vendorHash = "sha256-J4QwoRIi+jrl0p1nShQe3U8PxNuNaUm2eooJTRfTm3g=";
+            vendorHash = "sha256-A9E7Qilo/pwiFP2xBSBZYyfMtGxNKAeXEOw8Cweornc=";
           };
         });
     };

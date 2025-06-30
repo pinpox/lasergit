@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"agit/internal/git"
-	"agit/internal/gitea"
-	"agit/internal/tui"
+	"lasergit/internal/git"
+	"lasergit/internal/gitea"
+	"lasergit/internal/tui"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -14,7 +14,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "agit",
+	Use:   "lasergit",
 	Short: "AGit helper for Gitea",
 	Long: `A unified interface to manage pull requests using AGit workflow with Gitea.
 
